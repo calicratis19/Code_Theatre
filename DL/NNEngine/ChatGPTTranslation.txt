@@ -1,0 +1,86 @@
+#include <iostream>
+#include <vector>
+#include <cmath>
+
+class Tensor {
+public:
+    std::vector<double> data;
+    std::vector<double> grad;
+    std::vector<std::vector<double>> children;
+    bool requires_grad;
+
+    Tensor(double value, bool requires_grad = false) : requires_grad(requires_grad) {
+        data.push_back(value);
+        grad.push_back(0.0);
+    }
+
+    Tensor operator+(const Tensor& other) const {
+        Tensor result(0.0);
+        for (size_t i = 0; i < data.size(); i++) {
+            result.data[i] = data[i] + other.data[i];
+        }
+        return result;
+    }
+
+    Tensor operator*(const Tensor& other) const {
+        Tensor result(0.0);
+        for (size_t i = 0; i < data.size(); i++) {
+            result.data[i] = data[i] * other.data[i];
+        }
+        return result;
+    }
+
+    void backward(std::vector<double> grad_output) {
+        for (size_t i = 0; i < grad.size(); i++) {
+            grad[i] = grad_output[i];
+        }
+        if (requires_grad) {
+            for (size_t i = 0; i < children.size(); i++) {
+                std::vector<double> child_grad;
+                for (size_t j = 0; j < children[i].size(); j++) {
+                    child_grad.push_back(children[i][j]->grad[0]);
+                }
+                children[i][0]->backward(child_grad);
+            }
+        }
+    }
+
+    void set_children(std::vector<Tensor*> new_children) {
+        children.push_back(new_children);
+    }
+};
+
+Tensor* add(Tensor* a, Tensor* b) {
+    Tensor* result = new Tensor(0.0);
+    result->data[0] = a->data[0] + b->data[0];
+    result->set_children({ a, b });
+    return result;
+}
+
+Tensor* mul(Tensor* a, Tensor* b) {
+    Tensor* result = new Tensor(0.0);
+    result->data[0] = a->data[0] * b->data[0];
+    result->set_children({ a, b });
+    return result;
+}
+
+int main() {
+    Tensor* x = new Tensor(3.0, true);
+    Tensor* y = new Tensor(4.0, true);
+    Tensor* z = add(mul(x, y), new Tensor(2.0));
+
+    // Backpropagation
+    z->backward({ 1.0 });
+
+    // Print gradients
+    std::cout << "Gradients:" << std::endl;
+    std::cout << "x: " << x->grad[0] << std::endl;
+    std::cout << "y: " << y->grad[0] << std::endl;
+
+    // Clean up memory
+    delete x;
+    delete y;
+    delete z;
+
+    return 0;
+}
